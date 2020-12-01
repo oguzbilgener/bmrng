@@ -1,0 +1,28 @@
+[package]
+name = "bmrng"
+description = "A MPSC request-response channel for Tokio"
+version = "0.0.1"
+authors = ["Oguz Bilgener <oguz@bilgener.me>"]
+repository = "https://github.com/oguzbilgener/bmrng"
+keywords = ["tokio", "mpsc", "request", "async"]
+edition = "2018"
+license = "MIT"
+
+include = [
+  "CHANGELOG.md",
+  "LICENSE",
+  "README.md",
+  ".gitignore",
+  "Cargo.toml",
+  "src/*.rs",
+  "src/*/*.rs",
+  "tests/*.rs",
+  "benches/**/*.rs"
+]
+
+
+[dependencies]
+tokio = { version = "^0.3", features = ["sync"] }
+futures = { version = "^0.3" }
+[target.'cfg(loom)'.dependencies]
+loom = "0.3"
