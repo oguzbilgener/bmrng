@@ -1,2 +1,4 @@
 /target
 Cargo.lock
+tarpaulin-report.html
+loom_checkpoint.json
