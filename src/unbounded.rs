@@ -1,4 +1,4 @@
-use crate::error::{ReplyError, RequestError, SendError};
+use crate::error::{RequestError, RespondError, SendError};
 
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -87,12 +87,12 @@ impl<Res> UnboundedResponder<Res> {
     }
 
     /// Responds a request from the [RequestSender] which finishes the request
-    pub fn respond(&mut self, response: Res) -> Result<(), ReplyError<Res>> {
+    pub fn respond(&mut self, response: Res) -> Result<(), RespondError<Res>> {
         match self.response_sender.take() {
             Some(response_sender) => response_sender
                 .send(response)
-                .map_err(|res| ReplyError::ChannelClosed(res)),
-            None => Err(ReplyError::AlreadyReplied(response)),
+                .map_err(|res| RespondError::ChannelClosed(res)),
+            None => Err(RespondError::AlreadyReplied(response)),
         }
     }
 }

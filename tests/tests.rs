@@ -110,7 +110,7 @@ async fn unbounded_already_replied() {
                 let result = responder.respond(data - 2);
                 assert_ok!(result);
                 let result2 = responder.respond(data - 3);
-                assert_eq!(result2, Err(ReplyError::AlreadyReplied(5)));
+                assert_eq!(result2, Err(RespondError::AlreadyReplied(5)));
             }
             Err(err) => {
                 panic!(err);
@@ -131,7 +131,7 @@ async fn bounded_already_replied() {
                 let result = responder.respond(data - 2);
                 assert_ok!(result);
                 let result2 = responder.respond(data - 3);
-                assert_eq!(result2, Err(ReplyError::AlreadyReplied(5)));
+                assert_eq!(result2, Err(RespondError::AlreadyReplied(5)));
             }
             Err(err) => {
                 panic!(err);
