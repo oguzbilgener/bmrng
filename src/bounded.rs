@@ -122,6 +122,15 @@ impl<Res> Responder<Res> {
             None => Err(RespondError::AlreadyReplied(response)),
         }
     }
+
+    /// Checks if a response has already been sent, or the associated receiver
+    /// handle for the response listener has been dropped.
+    pub fn is_closed(&self) -> bool {
+        match &self.response_sender {
+            Some(sender) => sender.is_closed(),
+            None => false,
+        }
+    }
 }
 
 /// Creates a bounded mpsc request-response  channel for communicating between

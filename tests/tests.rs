@@ -7,7 +7,9 @@ async fn unbounded_send_receive() {
     tokio::spawn(async move {
         match rx.recv().await {
             Ok((input, mut responder)) => {
+                assert_eq!(responder.is_closed(), false);
                 let res = responder.respond(input * input);
+                assert_eq!(responder.is_closed(), true);
                 assert_ok!(res);
             }
             Err(err) => {
@@ -28,7 +30,9 @@ async fn bounded_send_receive() {
     tokio::spawn(async move {
         match rx.recv().await {
             Ok((input, mut responder)) => {
+                assert_eq!(responder.is_closed(), false);
                 let res = responder.respond(input * input);
+                assert_eq!(responder.is_closed(), true);
                 assert_ok!(res);
             }
             Err(err) => {
