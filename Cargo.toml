@@ -4,6 +4,7 @@ description = "async MPSC request-response channel for Tokio"
 version = "0.1.1"
 authors = ["Oguz Bilgener <oguz@bilgener.me>"]
 repository = "https://github.com/oguzbilgener/bmrng"
+documentation = "https://docs.rs/bmrng"
 keywords = ["tokio", "mpsc", "request", "async"]
 categories = ["concurrency", "asynchronous"]
 edition = "2018"
