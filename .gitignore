@@ -1,4 +1,5 @@
 /target
+# Ignored because this is a library
 Cargo.lock
 tarpaulin-report.html
 loom_checkpoint.json

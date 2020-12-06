@@ -28,12 +28,12 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 tokio = { version = "^0.3", features = ["sync"] }
 futures = { version = "^0.3" }
-criterion = { version="^0.3" }
 
 [dev-dependencies]
 tokio = { version = "0.3", features = ["test-util", "rt", "rt-multi-thread", "macros"] }
 tokio-test = "^0.3"
 loom = { version = "^0.4.0" }
+criterion = { version="^0.3" }
 
 [target.'cfg(loom)'.dependencies]
 loom = { version = "^0.4.0", features = ["futures", "checkpoint"] }
