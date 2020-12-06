@@ -15,7 +15,9 @@ async fn unbounded_send_receive() {
             }
         }
     });
+    assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;
+    assert_eq!(tx.is_closed(), true);
     assert_eq!(response.is_ok(), true);
     assert_eq!(response.unwrap(), 64);
 }
@@ -34,7 +36,9 @@ async fn bounded_send_receive() {
             }
         }
     });
+    assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;
+    assert_eq!(tx.is_closed(), true);
     assert_eq!(response.is_ok(), true);
     assert_eq!(response.unwrap(), 64);
 }

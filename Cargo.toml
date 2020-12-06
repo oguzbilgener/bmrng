@@ -31,7 +31,7 @@ futures = { version = "^0.3" }
 criterion = { version="^0.3" }
 
 [dev-dependencies]
-tokio = { version = "0.3", features = ["test-util", "rt", "macros"] }
+tokio = { version = "0.3", features = ["test-util", "rt", "rt-multi-thread", "macros"] }
 tokio-test = "^0.3"
 loom = { version = "^0.4.0" }
 

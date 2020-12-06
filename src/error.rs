@@ -3,7 +3,8 @@ use std::fmt;
 use tokio::sync::mpsc::error::{RecvError as MpscRecvError, SendError as MpscSendError};
 use tokio::sync::oneshot;
 
-/// Error thrown when a `.send` call fails on [RequestSender] because the channel is closed
+/// Error thrown when a [`RequestSender::send()`](crate::RequestSender::send()) or [`UnboundedRequestSender::send()`](crate::unbounded::UnboundedRequestSender::send())
+/// call fails because the channel is closed
 #[derive(Debug)]
 pub struct SendError<T>(pub T);
 
@@ -28,12 +29,13 @@ impl<T> fmt::Display for SendError<T> {
 
 impl<T> Error for SendError<T> where T: fmt::Debug {}
 
-/// Errors that can occur when a [RequestReceiver] handles a request
+/// Errors that can occur when a [`RequestReceiver`](crate::RequestReceiver)
+/// or [`UnboundedReceiver`](crate::unbounded::UnboundedRequestReceiver) handles a request
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum RequestError<T> {
-    /// Error occurring when the channel from [RequestSender] to [RequestReceiver] is closed
+    /// Error occurring when the channel from [`RequestSender`](crate::RequestSender) to [`RequestReceiver`](crate::RequestReceiver) is closed
     RecvError,
-    /// Error occurring when the channel from [RequestReceiver] to [RequestSender] is closed
+    /// Error occurring when the channel from [`RequestReceiver`](crate::RequestReceiver) to [RequestSender](crate::RequestSender) is closed
     SendError(T),
 }
 
@@ -106,6 +108,7 @@ impl<T> fmt::Display for RespondError<T> {
 
 impl<T> Error for RespondError<T> where T: fmt::Debug {}
 
+#[cfg(test)]
 pub mod tests {
     pub use super::*;
 
