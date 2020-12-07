@@ -27,10 +27,12 @@
 
 mod bounded;
 pub use self::bounded::{
-    channel, Payload, RequestReceiver, RequestSender, Responder, ResponseReceiver,
+    channel, channel_with_timeout, Payload, RequestReceiver, RequestSender, Responder,
+    ResponseReceiver,
 };
 /// The errors produced by this crate
 pub mod error;
 /// The unbounded channel alternative
 pub mod unbounded;
 pub use unbounded::channel as unbounded_channel;
+pub use unbounded::channel_with_timeout as unbounded_channel_with_timeout;

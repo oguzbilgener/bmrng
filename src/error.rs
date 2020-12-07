@@ -35,8 +35,20 @@ impl<T> Error for SendError<T> where T: fmt::Debug {}
 pub enum RequestError<T> {
     /// Error occurring when the channel from [`RequestSender`](crate::RequestSender) to [`RequestReceiver`](crate::RequestReceiver) is closed
     RecvError,
+    /// Error occurring when the Responder fails to send a response before the timeout
+    RecvTimeoutError,
     /// Error occurring when the channel from [`RequestReceiver`](crate::RequestReceiver) to [RequestSender](crate::RequestSender) is closed
     SendError(T),
+}
+
+/// Errors that can occur when a [`ResponseReceiver`](crate::ResponseReceiver) is
+// waiting for a response
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ReceiveError {
+    /// Error occurring when the channel from [`RequestSender`](crate::RequestSender) to [`RequestReceiver`](crate::RequestReceiver) is closed
+    RecvError,
+    /// Error occurring when the Responder fails to send a response before the timeout
+    TimeoutError,
 }
 
 // Cannot test this due to private field in the tokio error implementation
@@ -61,9 +73,18 @@ impl<T> From<RespondError<T>> for RequestError<T> {
     }
 }
 
-impl<T> From<oneshot::error::RecvError> for RequestError<T> {
-    fn from(_err: oneshot::error::RecvError) -> RequestError<T> {
-        RequestError::RecvError
+impl<T> From<ReceiveError> for RequestError<T> {
+    fn from(err: ReceiveError) -> RequestError<T> {
+        match err {
+            ReceiveError::RecvError => RequestError::RecvError,
+            ReceiveError::TimeoutError => RequestError::RecvTimeoutError,
+        }
+    }
+}
+
+impl From<oneshot::error::RecvError> for ReceiveError {
+    fn from(_err: oneshot::error::RecvError) -> ReceiveError {
+        ReceiveError::RecvError
     }
 }
 
@@ -75,6 +96,7 @@ impl<T> fmt::Display for RequestError<T> {
             "{}",
             match self {
                 RequestError::RecvError => "request channel closed",
+                RequestError::RecvTimeoutError => "request timed out",
                 RequestError::SendError(..) => "channel closed",
             }
         )
@@ -100,7 +122,7 @@ impl<T> fmt::Display for RespondError<T> {
             "{}",
             match self {
                 RespondError::AlreadyReplied(..) => "already replied",
-                RespondError::ChannelClosed(..) => "sender closed the reply channel",
+                RespondError::ChannelClosed(..) => "sender closed the response channel",
             }
         )
     }

@@ -27,8 +27,7 @@ codecov = { repository = "oguzbilgener/bmrng", branch = "master", service = "git
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-tokio = { version = "^0.3", features = ["sync"] }
-futures = { version = "^0.3" }
+tokio = { version = "^0.3", features = ["sync", "time"] }
 
 [dev-dependencies]
 tokio = { version = "0.3", features = ["test-util", "rt", "rt-multi-thread", "macros"] }
@@ -41,9 +40,6 @@ loom = { version = "^0.4.0", features = ["futures", "checkpoint"] }
 
 [[test]]
 name = "tests"
-
-#   cargo tarpaulin --out Html
-
 
 # [[bench]]
 # name = "bench_channel"

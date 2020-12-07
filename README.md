@@ -18,17 +18,47 @@ async fn main() {
     let buffer_size = 100;
     let (tx, mut rx) = bmrng::channel::<i32, i32>(buffer_size);
     tokio::spawn(async move {
+        while let Ok((input, mut responder)) = rx.recv().await {
+            if let Err(err) = responder.respond(input * input) {
+                println!("sender dropped the response channel");
+            }
+        }
+    });
+    for i in 1..=10 {
+        if let Ok(response) = tx.send_receive(i).await {
+            println!("Requested {}, got {}", i, response);
+            assert_eq!(response, i * i);
+        }
+    }
+}
+```
+
+#### Request Timeout
+
+It is also possible to create a channel with a request timeout:
+
+```rust
+use tokio::time::{Duration, sleep};
+#[tokio::main]
+async fn main() {
+    let (tx, mut rx) = bmrng::channel_with_timeout::<i32, i32>(100, Duration::from_millis(100));
+    tokio::spawn(async move {
         match rx.recv().await {
             Ok((input, mut responder)) => {
+                sleep(Duration::from_millis(200)).await;
                 let res = responder.respond(input * input);
                 assert_eq!(res.is_ok(), true);
             }
             Err(err) => {
-                panic!(err);
+                println!("all request senders dropped");
             }
         }
     });
     let response = tx.send_receive(8).await;
-    assert_eq!(response.unwrap(), 64);
+    assert_eq!(response, Err(bmrng::error::RequestError::<i32>::RecvTimeoutError));
 }
 ```
+
+#### Unbounded Channel
+
+There is also an unbounded alternative, `bmrng::unbounded_channel()` with non-blocking `.send()` calls.
