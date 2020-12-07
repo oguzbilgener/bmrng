@@ -1,3 +1,3 @@
 #!/usr/bin/env sh
 
-cargo tarpaulin --out Html
+cargo tarpaulin --ignore-tests --out Html
