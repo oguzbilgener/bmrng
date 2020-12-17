@@ -8,7 +8,7 @@ use tokio::time::Duration;
 pub type Payload<Req, Res> = (Req, UnboundedResponder<Res>);
 
 /// Send values to the associated [`UnboundedRequestReceiver`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnboundedRequestSender<Req, Res> {
     request_sender: mpsc::UnboundedSender<Payload<Req, Res>>,
     timeout_duration: Option<Duration>,

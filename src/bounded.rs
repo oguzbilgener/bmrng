@@ -7,7 +7,7 @@ use tokio::time::{timeout, Duration};
 pub type Payload<Req, Res> = (Req, Responder<Res>);
 
 /// Send values to the associated [`RequestReceiver`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RequestSender<Req, Res> {
     request_sender: mpsc::Sender<Payload<Req, Res>>,
     timeout_duration: Option<Duration>,
