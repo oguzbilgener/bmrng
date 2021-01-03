@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-#![deny(warnings)]
 #![warn(
     missing_copy_implementations,
     missing_debug_implementations,
