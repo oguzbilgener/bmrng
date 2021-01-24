@@ -49,6 +49,50 @@ async fn bounded_send_receive() {
 }
 
 #[tokio::test]
+async fn unbounded_request_sender_clone() {
+    let (tx, mut rx) = bmrng::unbounded_channel::<i32, i32>();
+    let tx2 = tx.clone();
+    tokio::spawn(async move {
+        let response = tx2.send_receive(7).await;
+        assert_eq!(response, Ok(49));
+    });
+    tokio::spawn(async move {
+        while let Ok((input, mut responder)) = rx.recv().await {
+            assert_eq!(responder.is_closed(), false);
+            let res = responder.respond(input * input);
+            assert_eq!(responder.is_closed(), true);
+            assert_ok!(res);
+        }
+    });
+
+    assert_eq!(tx.is_closed(), false);
+    let response = tx.send_receive(8).await;
+    assert_eq!(response, Ok(64));
+}
+
+#[tokio::test]
+async fn bounded_request_sender_clone() {
+    let (tx, mut rx) = bmrng::channel::<i32, i32>(1);
+    let tx2 = tx.clone();
+    tokio::spawn(async move {
+        let response = tx2.send_receive(7).await;
+        assert_eq!(response, Ok(49));
+    });
+    tokio::spawn(async move {
+        while let Ok((input, mut responder)) = rx.recv().await {
+            assert_eq!(responder.is_closed(), false);
+            let res = responder.respond(input * input);
+            assert_eq!(responder.is_closed(), true);
+            assert_ok!(res);
+        }
+    });
+
+    assert_eq!(tx.is_closed(), false);
+    let response = tx.send_receive(8).await;
+    assert_eq!(response, Ok(64));
+}
+
+#[tokio::test]
 async fn unbounded_drop_while_waiting_for_response() {
     let (tx, mut rx) = bmrng::unbounded_channel::<i32, i32>();
     let task = tokio::spawn(async move {
@@ -85,7 +129,7 @@ async fn unbounded_drop_sender_while_sending_response() {
     let task = tokio::spawn(async move {
         match rx.recv().await {
             Ok((_, mut responder)) => {
-                let respond_result  = responder.respond(42);
+                let respond_result = responder.respond(42);
                 assert_eq!(respond_result, Err(RespondError::ChannelClosed(42)));
             }
             Err(err) => {
@@ -135,7 +179,7 @@ async fn bounded_drop_sender_while_sending_response() {
     let task = tokio::spawn(async move {
         match rx.recv().await {
             Ok((_, mut responder)) => {
-                let respond_result  = responder.respond(42);
+                let respond_result = responder.respond(42);
                 assert_eq!(respond_result, Err(RespondError::ChannelClosed(42)));
             }
             Err(err) => {

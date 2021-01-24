@@ -8,7 +8,7 @@ use tokio::time::Duration;
 pub type Payload<Req, Res> = (Req, UnboundedResponder<Res>);
 
 /// Send values to the associated [`UnboundedRequestReceiver`].
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct UnboundedRequestSender<Req, Res> {
     request_sender: mpsc::UnboundedSender<Payload<Req, Res>>,
     timeout_duration: Option<Duration>,
@@ -67,6 +67,15 @@ impl<Req, Res> UnboundedRequestSender<Req, Res> {
     /// Checks if the channel has been closed.
     pub fn is_closed(&self) -> bool {
         self.request_sender.is_closed()
+    }
+}
+
+impl<Req, Res> Clone for UnboundedRequestSender<Req, Res> {
+    fn clone(&self) -> Self {
+        UnboundedRequestSender {
+            request_sender: self.request_sender.clone(),
+            timeout_duration: self.timeout_duration.clone(),
+        }
     }
 }
 
