@@ -148,7 +148,7 @@ impl<Res> Responder<Res> {
     pub fn is_closed(&self) -> bool {
         match &self.response_sender {
             Some(sender) => sender.is_closed(),
-            None => false,
+            None => true,
         }
     }
 }
