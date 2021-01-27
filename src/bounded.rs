@@ -3,6 +3,10 @@ use crate::error::{ReceiveError, RequestError, RespondError, SendError};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{timeout, Duration};
 
+use futures::Stream;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
 /// The internal data sent in the MPSC request channel, a tuple that contains the request and the oneshot response channel responder
 pub type Payload<Req, Res> = (Req, Responder<Res>);
 
@@ -102,6 +106,17 @@ impl<Req, Res> RequestReceiver<Req, Res> {
             Some(payload) => Ok(payload),
             None => Err(RequestError::RecvError),
         }
+    }
+
+    /// Closes the receiving half of a channel without dropping it.
+    pub fn close(&mut self) {
+        self.request_receiver.close()
+    }
+
+    /// Converts this receiver into a stream
+    pub fn into_stream(self) -> impl Stream<Item = Payload<Req, Res>> {
+        let stream: RequestReceiverStream<Req, Res> = self.into();
+        stream
     }
 }
 
@@ -236,4 +251,57 @@ pub fn channel_with_timeout<Req, Res>(
     let request_sender = RequestSender::new(sender, Some(timeout_duration));
     let request_receiver = RequestReceiver::new(receiver);
     (request_sender, request_receiver)
+}
+
+/// A wrapper around [`bmrng::RequestReceiver`] that implements [`Stream`].
+#[derive(Debug)]
+pub struct RequestReceiverStream<Req, Res> {
+    inner: RequestReceiver<Req, Res>,
+}
+
+impl<Req, Res> RequestReceiverStream<Req, Res> {
+    /// Create a new `RequestReceiverStream`.
+    pub fn new(recv: RequestReceiver<Req, Res>) -> Self {
+        Self { inner: recv }
+    }
+
+    /// Get back the inner `Receiver`.
+    #[cfg(not(tarpaulin_include))]
+    pub fn into_inner(self) -> RequestReceiver<Req, Res> {
+        self.inner
+    }
+
+    /// Closes the receiving half of a channel without dropping it.
+    #[cfg(not(tarpaulin_include))]
+    pub fn close(&mut self) {
+        self.inner.close()
+    }
+}
+
+impl<Req, Res> Stream for RequestReceiverStream<Req, Res> {
+    type Item = Payload<Req, Res>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.inner.request_receiver.poll_recv(cx)
+    }
+}
+
+impl<Req, Res> AsRef<RequestReceiver<Req, Res>> for RequestReceiverStream<Req, Res> {
+    #[cfg(not(tarpaulin_include))]
+    fn as_ref(&self) -> &RequestReceiver<Req, Res> {
+        &self.inner
+    }
+}
+
+impl<Req, Res> AsMut<RequestReceiver<Req, Res>> for RequestReceiverStream<Req, Res> {
+    #[cfg(not(tarpaulin_include))]
+    fn as_mut(&mut self) -> &mut RequestReceiver<Req, Res> {
+        &mut self.inner
+    }
+}
+
+impl<Req, Res> From<RequestReceiver<Req, Res>> for RequestReceiverStream<Req, Res> {
+    fn from(receiver: RequestReceiver<Req, Res>) -> Self {
+        RequestReceiverStream::new(receiver)
+    }
 }

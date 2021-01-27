@@ -5,7 +5,7 @@ use tokio::sync::oneshot;
 
 /// Error thrown when a [`RequestSender::send()`](crate::RequestSender::send()) or [`UnboundedRequestSender::send()`](crate::unbounded::UnboundedRequestSender::send())
 /// call fails because the channel is closed
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SendError<T>(pub T);
 
 impl<T> From<SendError<T>> for MpscSendError<T> {
