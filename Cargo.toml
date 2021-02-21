@@ -34,7 +34,7 @@ futures = "0.3"
 tokio = { version = "1", features = ["test-util", "rt", "rt-multi-thread", "macros"] }
 tokio-test = "^0.4"
 loom = { version = "^0.4.0" }
-criterion = { version="^0.3" }
+criterion = { version="^0.3.4", features = ["async_tokio", "html_reports"] }
 
 [target.'cfg(loom)'.dependencies]
 loom = { version = "^0.4.0", features = ["futures", "checkpoint"] }
@@ -42,6 +42,11 @@ loom = { version = "^0.4.0", features = ["futures", "checkpoint"] }
 [[test]]
 name = "tests"
 
-# [[bench]]
-# name = "bench_channel"
-# harness = false
+[[bench]]
+name = "bench_channel_async"
+harness = false
+
+
+[[bench]]
+name = "bench_channel_sync"
+harness = false
