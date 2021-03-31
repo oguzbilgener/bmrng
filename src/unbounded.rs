@@ -120,8 +120,7 @@ impl<Res> UnboundedResponder<Res> {
         self.response_sender.send(response).map_err(RespondError)
     }
 
-    /// Checks if a response has already been sent, or the associated receiver
-    /// handle for the response listener has been dropped.
+    /// Checks if the associated receiver handle for the response listener has been dropped.
     pub fn is_closed(&self) -> bool {
         self.response_sender.is_closed()
     }
@@ -157,7 +156,7 @@ pub fn channel_with_timeout<Req, Res>(
     (request_sender, request_receiver)
 }
 
-/// A wrapper around [`bmrng::unbounded::UnboundedRequestReceiver`] that implements [`Stream`].
+/// A wrapper around [`UnboundedRequestReceiver`] that implements [`Stream`].
 #[derive(Debug)]
 pub struct UnboundedRequestReceiverStream<Req, Res> {
     inner: UnboundedRequestReceiver<Req, Res>,

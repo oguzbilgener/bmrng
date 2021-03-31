@@ -160,8 +160,7 @@ impl<Res> Responder<Res> {
         self.response_sender.send(response).map_err(RespondError)
     }
 
-    /// Checks if a response has already been sent, or the associated receiver
-    /// handle for the response listener has been dropped.
+    /// Checks if the associated receiver handle for the response listener has been dropped.
     pub fn is_closed(&self) -> bool {
         self.response_sender.is_closed()
     }
@@ -243,7 +242,7 @@ pub fn channel_with_timeout<Req, Res>(
     (request_sender, request_receiver)
 }
 
-/// A wrapper around [`bmrng::RequestReceiver`] that implements [`Stream`].
+/// A wrapper around [`RequestReceiver`] that implements [`Stream`].
 #[derive(Debug)]
 pub struct RequestReceiverStream<Req, Res> {
     inner: RequestReceiver<Req, Res>,
