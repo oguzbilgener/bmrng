@@ -38,7 +38,7 @@ fn closing_tx_res() {
         });
 
         let v = block_on(rx.recv());
-        let (req, mut responder) = v.unwrap();
+        let (req, responder) = v.unwrap();
         let v = responder.respond(req * 2);
         assert_ok!(v);
 

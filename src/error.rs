@@ -66,10 +66,7 @@ impl<T> From<SendError<T>> for RequestError<T> {
 
 impl<T> From<RespondError<T>> for RequestError<T> {
     fn from(err: RespondError<T>) -> RequestError<T> {
-        match err {
-            RespondError::AlreadyReplied(item) => RequestError::SendError(item),
-            RespondError::ChannelClosed(item) => RequestError::SendError(item),
-        }
+        RequestError::SendError(err.0)
     }
 }
 
@@ -106,25 +103,14 @@ impl<T> fmt::Display for RequestError<T> {
 impl<T> Error for RequestError<T> where T: fmt::Debug {}
 
 /// Error thrown when a Responder fails to respond.
+/// The channel was closed by the receiver, the original request sender
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum RespondError<T> {
-    /// A reply was already sent in this oneshot channel, cannot send more
-    AlreadyReplied(T),
-    /// The channel was closed by the receiver, the original request sender
-    ChannelClosed(T),
-}
+pub struct RespondError<T>(pub T);
 
 impl<T> fmt::Display for RespondError<T> {
     #[cfg(not(tarpaulin_include))]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            fmt,
-            "{}",
-            match self {
-                RespondError::AlreadyReplied(..) => "already replied",
-                RespondError::ChannelClosed(..) => "sender closed the response channel",
-            }
-        )
+        write!(fmt, "sender closed the response channel",)
     }
 }
 
@@ -157,10 +143,7 @@ pub mod tests {
 
     #[test]
     fn reply_error_to_request_error() {
-        let err = RespondError::AlreadyReplied(21);
-        let q_err: RequestError<i32> = err.into();
-        assert_eq!(q_err, RequestError::SendError(21));
-        let err = RespondError::ChannelClosed(21);
+        let err = RespondError(21);
         let q_err: RequestError<i32> = err.into();
         assert_eq!(q_err, RequestError::SendError(21));
     }
