@@ -31,7 +31,7 @@ pub struct UnboundedRequestReceiver<Req, Res> {
 /// Instances are created by calling [`UnboundedRequestSender::send_receive()`] or [`UnboundedRequestSender::send()`]
 #[derive(Debug)]
 pub struct UnboundedResponder<Res> {
-    response_sender: Option<oneshot::Sender<Res>>,
+    response_sender: oneshot::Sender<Res>,
 }
 
 impl<Req, Res> UnboundedRequestSender<Req, Res> {
@@ -112,28 +112,17 @@ impl<Req, Res> UnboundedRequestReceiver<Req, Res> {
 
 impl<Res> UnboundedResponder<Res> {
     fn new(response_sender: oneshot::Sender<Res>) -> Self {
-        Self {
-            response_sender: Some(response_sender),
-        }
+        Self { response_sender }
     }
 
     /// Responds a request from the [`UnboundedRequestSender`] which finishes the request
-    pub fn respond(&mut self, response: Res) -> Result<(), RespondError<Res>> {
-        match self.response_sender.take() {
-            Some(response_sender) => response_sender
-                .send(response)
-                .map_err(RespondError::ChannelClosed),
-            None => Err(RespondError::AlreadyReplied(response)),
-        }
+    pub fn respond(self, response: Res) -> Result<(), RespondError<Res>> {
+        self.response_sender.send(response).map_err(RespondError)
     }
 
-    /// Checks if a response has already been sent, or the associated receiver
-    /// handle for the response listener has been dropped.
+    /// Checks if the associated receiver handle for the response listener has been dropped.
     pub fn is_closed(&self) -> bool {
-        match &self.response_sender {
-            Some(sender) => sender.is_closed(),
-            None => true,
-        }
+        self.response_sender.is_closed()
     }
 }
 
@@ -167,7 +156,7 @@ pub fn channel_with_timeout<Req, Res>(
     (request_sender, request_receiver)
 }
 
-/// A wrapper around [`bmrng::unbounded::UnboundedRequestReceiver`] that implements [`Stream`].
+/// A wrapper around [`UnboundedRequestReceiver`] that implements [`Stream`].
 #[derive(Debug)]
 pub struct UnboundedRequestReceiverStream<Req, Res> {
     inner: UnboundedRequestReceiver<Req, Res>,

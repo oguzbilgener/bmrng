@@ -30,7 +30,7 @@ pub struct RequestReceiver<Req, Res> {
 /// Instances are created by calling [`RequestSender::send_receive()`] or [`RequestSender::send()`]
 #[derive(Debug)]
 pub struct Responder<Res> {
-    response_sender: Option<oneshot::Sender<Res>>,
+    response_sender: oneshot::Sender<Res>,
 }
 
 /// Receive responses from a [`Responder`]
@@ -152,28 +152,17 @@ impl<Res> ResponseReceiver<Res> {
 
 impl<Res> Responder<Res> {
     pub(crate) fn new(response_sender: oneshot::Sender<Res>) -> Self {
-        Self {
-            response_sender: Some(response_sender),
-        }
+        Self { response_sender }
     }
 
     /// Responds a request from the [`RequestSender`] which finishes the request
-    pub fn respond(&mut self, response: Res) -> Result<(), RespondError<Res>> {
-        match self.response_sender.take() {
-            Some(response_sender) => response_sender
-                .send(response)
-                .map_err(RespondError::ChannelClosed),
-            None => Err(RespondError::AlreadyReplied(response)),
-        }
+    pub fn respond(self, response: Res) -> Result<(), RespondError<Res>> {
+        self.response_sender.send(response).map_err(RespondError)
     }
 
-    /// Checks if a response has already been sent, or the associated receiver
-    /// handle for the response listener has been dropped.
+    /// Checks if the associated receiver handle for the response listener has been dropped.
     pub fn is_closed(&self) -> bool {
-        match &self.response_sender {
-            Some(sender) => sender.is_closed(),
-            None => true,
-        }
+        self.response_sender.is_closed()
     }
 }
 
@@ -253,7 +242,7 @@ pub fn channel_with_timeout<Req, Res>(
     (request_sender, request_receiver)
 }
 
-/// A wrapper around [`bmrng::RequestReceiver`] that implements [`Stream`].
+/// A wrapper around [`RequestReceiver`] that implements [`Stream`].
 #[derive(Debug)]
 pub struct RequestReceiverStream<Req, Res> {
     inner: RequestReceiver<Req, Res>,
