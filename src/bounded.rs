@@ -88,7 +88,7 @@ impl<Req, Res> Clone for RequestSender<Req, Res> {
     fn clone(&self) -> Self {
         RequestSender {
             request_sender: self.request_sender.clone(),
-            timeout_duration: self.timeout_duration.clone(),
+            timeout_duration: self.timeout_duration,
         }
     }
 }
@@ -162,7 +162,7 @@ impl<Res> Responder<Res> {
         match self.response_sender.take() {
             Some(response_sender) => response_sender
                 .send(response)
-                .map_err(|res| RespondError::ChannelClosed(res)),
+                .map_err(RespondError::ChannelClosed),
             None => Err(RespondError::AlreadyReplied(response)),
         }
     }

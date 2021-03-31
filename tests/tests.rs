@@ -8,17 +8,11 @@ use tokio_test::{assert_err, assert_ok};
 async fn unbounded_send_receive() {
     let (tx, mut rx) = bmrng::unbounded_channel::<i32, i32>();
     tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((input, mut responder)) => {
-                assert_eq!(responder.is_closed(), false);
-                let res = responder.respond(input * input);
-                assert_eq!(responder.is_closed(), true);
-                assert_ok!(res);
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (input, mut responder) = rx.recv().await.expect("Unexpected err");
+        assert_eq!(responder.is_closed(), false);
+        let res = responder.respond(input * input);
+        assert_eq!(responder.is_closed(), true);
+        assert_ok!(res);
     });
     assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;
@@ -31,17 +25,11 @@ async fn unbounded_send_receive() {
 async fn bounded_send_receive() {
     let (tx, mut rx) = bmrng::channel::<i32, i32>(1);
     tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((input, mut responder)) => {
-                assert_eq!(responder.is_closed(), false);
-                let res = responder.respond(input * input);
-                assert_eq!(responder.is_closed(), true);
-                assert_ok!(res);
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (input, mut responder) = rx.recv().await.expect("Unexpected err");
+        assert_eq!(responder.is_closed(), false);
+        let res = responder.respond(input * input);
+        assert_eq!(responder.is_closed(), true);
+        assert_ok!(res);
     });
     assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;
@@ -98,14 +86,8 @@ async fn bounded_request_sender_clone() {
 async fn unbounded_drop_while_waiting_for_response() {
     let (tx, mut rx) = bmrng::unbounded_channel::<i32, i32>();
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((_, responder)) => {
-                drop(responder);
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (_, responder) = rx.recv().await.expect("Unexpected err");
+        drop(responder);
     });
     let response = tx.send_receive(8).await;
     assert_ok!(tokio::join!(task).0);
@@ -116,9 +98,8 @@ async fn unbounded_drop_while_waiting_for_response() {
 async fn unbounded_drop_while_waiting_for_request() {
     let (tx, mut rx) = bmrng::unbounded_channel::<i32, i32>();
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok(_) => panic!("this should not be ok"),
-            Err(_) => {}
+        if rx.recv().await.is_ok() {
+            panic!("this should not be ok")
         };
     });
     drop(tx);
@@ -129,15 +110,9 @@ async fn unbounded_drop_while_waiting_for_request() {
 async fn unbounded_drop_sender_while_sending_response() {
     let (tx, mut rx) = bmrng::unbounded_channel::<i32, i32>();
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((_, mut responder)) => {
-                let respond_result = responder.respond(42);
-                assert_eq!(respond_result, Err(RespondError::ChannelClosed(42)));
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (_, mut responder) = rx.recv().await.expect("Received err");
+        let respond_result = responder.respond(42);
+        assert_eq!(respond_result, Err(RespondError::ChannelClosed(42)));
     });
     let response_receiver = tx.send(21);
     drop(response_receiver);
@@ -148,14 +123,8 @@ async fn unbounded_drop_sender_while_sending_response() {
 async fn bounded_drop_while_waiting_for_response() {
     let (tx, mut rx) = bmrng::channel::<i32, i32>(1);
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((_, responder)) => {
-                drop(responder);
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (_, responder) = rx.recv().await.expect("Unexpected err");
+        drop(responder);
     });
     let response = tx.send_receive(8).await;
     assert_ok!(tokio::join!(task).0);
@@ -166,10 +135,7 @@ async fn bounded_drop_while_waiting_for_response() {
 async fn bounded_drop_while_waiting_for_request() {
     let (tx, mut rx) = bmrng::channel::<i32, i32>(1);
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok(_) => panic!("this should not be ok"),
-            Err(_) => {}
-        };
+        rx.recv().await.expect_err("this should not be ok");
     });
     drop(tx);
     assert_ok!(tokio::join!(task).0);
@@ -179,15 +145,9 @@ async fn bounded_drop_while_waiting_for_request() {
 async fn bounded_drop_sender_while_sending_response() {
     let (tx, mut rx) = bmrng::channel::<i32, i32>(1);
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((_, mut responder)) => {
-                let respond_result = responder.respond(42);
-                assert_eq!(respond_result, Err(RespondError::ChannelClosed(42)));
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (_, mut responder) = rx.recv().await.expect("Unexpected err");
+        let respond_result = responder.respond(42);
+        assert_eq!(respond_result, Err(RespondError::ChannelClosed(42)));
     });
     let response_receiver = tx.send(21).await;
     drop(response_receiver);
@@ -230,17 +190,11 @@ async fn unbounded_close_request_receiver() {
 async fn unbounded_already_replied() {
     let (tx, mut rx) = bmrng::unbounded_channel::<i32, i32>();
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((data, mut responder)) => {
-                let result = responder.respond(data - 2);
-                assert_ok!(result);
-                let result2 = responder.respond(data - 3);
-                assert_eq!(result2, Err(RespondError::AlreadyReplied(5)));
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (data, mut responder) = rx.recv().await.expect("Unexpected err");
+        let result = responder.respond(data - 2);
+        assert_ok!(result);
+        let result2 = responder.respond(data - 3);
+        assert_eq!(result2, Err(RespondError::AlreadyReplied(5)));
     });
     let response = tx.send_receive(8).await;
     assert_ok!(tokio::join!(task).0);
@@ -251,17 +205,11 @@ async fn unbounded_already_replied() {
 async fn bounded_already_replied() {
     let (tx, mut rx) = bmrng::channel::<i32, i32>(1);
     let task = tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((data, mut responder)) => {
-                let result = responder.respond(data - 2);
-                assert_ok!(result);
-                let result2 = responder.respond(data - 3);
-                assert_eq!(result2, Err(RespondError::AlreadyReplied(5)));
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (data, mut responder) = rx.recv().await.expect("Unexpected err");
+        let result = responder.respond(data - 2);
+        assert_ok!(result);
+        let result2 = responder.respond(data - 3);
+        assert_eq!(result2, Err(RespondError::AlreadyReplied(5)));
     });
     let response = tx.send_receive(8).await;
     assert_ok!(tokio::join!(task).0);
@@ -273,18 +221,12 @@ async fn bounded_timeout() {
     let (tx, mut rx) = bmrng::channel_with_timeout::<i32, i32>(1, Duration::from_millis(100));
     pause();
     tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((_input, responder)) => {
-                assert_eq!(responder.is_closed(), false);
-                advance(Duration::from_millis(200)).await;
-                sleep(Duration::from_micros(1)).await;
-                resume();
-                panic!("Should have timed out");
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (_input, responder) = rx.recv().await.expect("Unexpected err");
+        assert_eq!(responder.is_closed(), false);
+        advance(Duration::from_millis(200)).await;
+        sleep(Duration::from_micros(1)).await;
+        resume();
+        panic!("Should have timed out");
     });
     assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;
@@ -297,18 +239,12 @@ async fn unbounded_timeout() {
         bmrng::unbounded::channel_with_timeout::<i32, i32>(Duration::from_millis(100));
     pause();
     tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((_input, responder)) => {
-                assert_eq!(responder.is_closed(), false);
-                advance(Duration::from_millis(200)).await;
-                sleep(Duration::from_micros(1)).await;
-                resume();
-                panic!("Should have timed out");
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (_input, responder) = rx.recv().await.expect("Unexpected err");
+        assert_eq!(responder.is_closed(), false);
+        advance(Duration::from_millis(200)).await;
+        sleep(Duration::from_micros(1)).await;
+        resume();
+        panic!("Should have timed out");
     });
     assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;
@@ -363,17 +299,11 @@ async fn req_receiver_into_inner() {
     let stream = RequestReceiverStream::new(rx);
     let mut rx = stream.into_inner();
     tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((input, mut responder)) => {
-                assert_eq!(responder.is_closed(), false);
-                let res = responder.respond(input * input);
-                assert_eq!(responder.is_closed(), true);
-                assert_ok!(res);
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (input, mut responder) = rx.recv().await.expect("Unexpected err");
+        assert_eq!(responder.is_closed(), false);
+        let res = responder.respond(input * input);
+        assert_eq!(responder.is_closed(), true);
+        assert_ok!(res);
     });
     assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;
@@ -388,17 +318,11 @@ async fn req_unbounded_receiver_into_inner() {
     let stream = UnboundedRequestReceiverStream::new(rx);
     let mut rx = stream.into_inner();
     tokio::spawn(async move {
-        match rx.recv().await {
-            Ok((input, mut responder)) => {
-                assert_eq!(responder.is_closed(), false);
-                let res = responder.respond(input * input);
-                assert_eq!(responder.is_closed(), true);
-                assert_ok!(res);
-            }
-            Err(err) => {
-                panic!(err);
-            }
-        }
+        let (input, mut responder) = rx.recv().await.expect("Unexpected err");
+        assert_eq!(responder.is_closed(), false);
+        let res = responder.respond(input * input);
+        assert_eq!(responder.is_closed(), true);
+        assert_ok!(res);
     });
     assert_eq!(tx.is_closed(), false);
     let response = tx.send_receive(8).await;

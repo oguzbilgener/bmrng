@@ -14,7 +14,7 @@ fn benchmark_sync(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("benchmarks_sync");
 
-    group.throughput(Throughput::Elements(1 as u64));
+    group.throughput(Throughput::Elements(1u64));
 
     group.bench_function("bmrng, bounded, capacity = 1", |b| {
         b.iter(|| {

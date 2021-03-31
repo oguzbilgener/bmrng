@@ -26,8 +26,8 @@
 
 mod bounded;
 pub use self::bounded::{
-    channel, channel_with_timeout, Payload, RequestReceiver, RequestSender, Responder,
-    ResponseReceiver, RequestReceiverStream,
+    channel, channel_with_timeout, Payload, RequestReceiver, RequestReceiverStream, RequestSender,
+    Responder, ResponseReceiver,
 };
 /// The errors produced by this crate
 pub mod error;
