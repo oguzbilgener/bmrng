@@ -61,4 +61,4 @@ async fn main() {
 
 #### Unbounded Channel
 
-There is also an unbounded alternative, `bmrng::unbounded_channel()` with non-blocking `.send()` calls.
+There is also an unbounded alternative, `bmrng::unbounded_channel()` with sync `.send()` calls.

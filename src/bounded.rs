@@ -57,7 +57,7 @@ impl<Req, Res> RequestSender<Req, Res> {
     ///
     /// Return the [`ResponseReceiver`] which can be used to wait for a response
     ///
-    /// This call blocks if the request channel is full. It does not wait for a response
+    /// This call waits if the request channel is full. It does not wait for a response
     pub async fn send(&self, request: Req) -> Result<ResponseReceiver<Res>, SendError<Req>> {
         let (response_sender, response_receiver) = oneshot::channel::<Res>();
         let responder = Responder::new(response_sender);
@@ -72,7 +72,7 @@ impl<Req, Res> RequestSender<Req, Res> {
 
     /// Send a request over the MPSC channel, wait for the response and return it
     ///
-    /// This call blocks if the request channel is full, and while waiting for the response
+    /// This call waits if the request channel is full, and while waiting for the response
     pub async fn send_receive(&self, request: Req) -> Result<Res, RequestError<Req>> {
         let mut receiver = self.send(request).await?;
         receiver.recv().await.map_err(|err| err.into())
