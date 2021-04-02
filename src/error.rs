@@ -102,6 +102,17 @@ impl<T> fmt::Display for RequestError<T> {
 
 impl<T> Error for RequestError<T> where T: fmt::Debug {}
 
+impl fmt::Display for ReceiveError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "{}", match self {
+            ReceiveError::RecvError => "receive channel closed",
+            ReceiveError::TimeoutError => "request timed out"
+        })
+    }
+}
+
+impl Error for ReceiveError {}
+
 /// Error thrown when a Responder fails to respond.
 /// The channel was closed by the receiver, the original request sender
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -146,5 +157,13 @@ pub mod tests {
         let err = RespondError(21);
         let q_err: RequestError<i32> = err.into();
         assert_eq!(q_err, RequestError::SendError(21));
+    }
+
+    #[test]
+    fn receive_error_display() {
+        let err = ReceiveError::RecvError;
+        assert_eq!("receive channel closed", err.to_string());
+        let err = ReceiveError::TimeoutError;
+        assert_eq!("request timed out", err.to_string());
     }
 }
