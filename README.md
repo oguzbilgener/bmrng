@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/bmrng)](https://crates.io/crates/bmrng)
 [![Documentation](https://docs.rs/bmrng/badge.svg)](https://docs.rs/bmrng)
 ![Unit Tests](https://github.com/oguzbilgener/bmrng/workflows/Unit%20Tests/badge.svg)
-[![codecov](https://codecov.io/gh/oguzbilgener/bmrng/branch/master/graph/badge.svg?token=8V51592OVH)](https://codecov.io/gh/oguzbilgener/bmrng)
+[![Coverage Status](https://coveralls.io/repos/github/oguzbilgener/bmrng/badge.svg)](https://coveralls.io/github/oguzbilgener/bmrng)
 [![Dependency status](https://deps.rs/repo/github/oguzbilgener/bmrng/status.svg)](https://deps.rs/repo/github/oguzbilgener/bmrng/status.svg)
 
 An async MPSC request-response channel for Tokio, where you can send a response to the sender.
