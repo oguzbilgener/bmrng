@@ -23,7 +23,6 @@ include = [
 ]
 
 [badges]
-codecov = { repository = "oguzbilgener/bmrng", branch = "master", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
