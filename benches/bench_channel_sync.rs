@@ -23,7 +23,7 @@ fn benchmark_sync(c: &mut Criterion) {
                 tokio::spawn(async move {
                     let mut rx = rx;
                     let req = rx.recv().await;
-                    if let Ok(mut req) = req {
+                    if let Ok(req) = req {
                         let _ = req.1.respond(());
                     }
                 });

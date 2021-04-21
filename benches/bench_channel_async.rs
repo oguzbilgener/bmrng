@@ -12,7 +12,7 @@ fn rt() -> tokio::runtime::Runtime {
 fn benchmark_async(c: &mut Criterion) {
     let mut group = c.benchmark_group("benchmarks");
 
-    group.throughput(Throughput::Elements(1 as u64));
+    group.throughput(Throughput::Elements(1u64));
 
     group.bench_function("bmrng async, bounded, capacity = 1", move |b| {
         b.to_async(rt()).iter(|| async {
@@ -20,7 +20,7 @@ fn benchmark_async(c: &mut Criterion) {
             tokio::spawn(async move {
                 let mut rx = rx;
                 let req = rx.recv().await;
-                if let Ok(mut req) = req {
+                if let Ok(req) = req {
                     let _ = req.1.respond(());
                 }
             });
