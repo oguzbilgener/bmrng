@@ -27,7 +27,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 tokio = { version = "1", features = ["sync", "time"] }
-futures = "0.3"
+futures-core = { version = "0.3", default-features = false }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "rt", "rt-multi-thread", "macros"] }

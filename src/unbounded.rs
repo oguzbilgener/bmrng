@@ -4,7 +4,7 @@ use crate::bounded::ResponseReceiver;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
 
-use futures::Stream;
+use futures_core::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
