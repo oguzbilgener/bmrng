@@ -32,9 +32,8 @@ futures-core = { version = "0.3", default-features = false }
 [dev-dependencies]
 futures-util = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["test-util", "rt", "rt-multi-thread", "macros"] }
-tokio-test = "0.4"
 loom = { version = "0.5", features = ["futures", "checkpoint"] }
-criterion = { version = "0.3.4", features = ["async_tokio", "html_reports"] }
+criterion = { version = "0.3", features = ["async_tokio", "html_reports"] }
 
 [[test]]
 name = "tests"
