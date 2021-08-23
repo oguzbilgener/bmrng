@@ -1,6 +1,6 @@
 use bmrng::unbounded::UnboundedRequestReceiverStream;
 use bmrng::{error::*, RequestReceiverStream};
-use futures::StreamExt;
+use futures_util::stream::StreamExt;
 use tokio::time::{advance, pause, resume, sleep, Duration};
 use tokio_test::{assert_err, assert_ok};
 

@@ -30,6 +30,7 @@ tokio = { version = "1", features = ["sync", "time"] }
 futures-core = { version = "0.3", default-features = false }
 
 [dev-dependencies]
+futures-util = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["test-util", "rt", "rt-multi-thread", "macros"] }
 tokio-test = "^0.4"
 loom = { version = "^0.4.0" }
@@ -44,7 +45,6 @@ name = "tests"
 [[bench]]
 name = "bench_channel_async"
 harness = false
-
 
 [[bench]]
 name = "bench_channel_sync"
