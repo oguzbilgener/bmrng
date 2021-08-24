@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt;
-use tokio::sync::mpsc::error::{RecvError as MpscRecvError, SendError as MpscSendError};
+use tokio::sync::mpsc::error::SendError as MpscSendError;
 use tokio::sync::oneshot;
 
 /// Error thrown when a [`RequestSender::send()`](crate::RequestSender::send()) or [`UnboundedRequestSender::send()`](crate::unbounded::UnboundedRequestSender::send())
@@ -51,13 +51,6 @@ pub enum ReceiveError {
     TimeoutError,
 }
 
-// Cannot test this due to private field in the tokio error implementation
-#[cfg(not(tarpaulin_include))]
-impl<T> From<MpscRecvError> for RequestError<T> {
-    fn from(_err: MpscRecvError) -> RequestError<T> {
-        RequestError::RecvError
-    }
-}
 impl<T> From<SendError<T>> for RequestError<T> {
     fn from(err: SendError<T>) -> RequestError<T> {
         RequestError::SendError(err.0)
@@ -104,10 +97,14 @@ impl<T> Error for RequestError<T> where T: fmt::Debug {}
 
 impl fmt::Display for ReceiveError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "{}", match self {
-            ReceiveError::RecvError => "receive channel closed",
-            ReceiveError::TimeoutError => "request timed out"
-        })
+        write!(
+            fmt,
+            "{}",
+            match self {
+                ReceiveError::RecvError => "receive channel closed",
+                ReceiveError::TimeoutError => "request timed out",
+            }
+        )
     }
 }
 

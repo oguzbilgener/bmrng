@@ -3,7 +3,7 @@ use crate::error::{ReceiveError, RequestError, RespondError, SendError};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{timeout, Duration};
 
-use futures::Stream;
+use futures_core::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 

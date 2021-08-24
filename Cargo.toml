@@ -27,16 +27,13 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 tokio = { version = "1", features = ["sync", "time"] }
-futures = "0.3"
+futures-core = { version = "0.3", default-features = false }
 
 [dev-dependencies]
+futures-util = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["test-util", "rt", "rt-multi-thread", "macros"] }
-tokio-test = "^0.4"
-loom = { version = "^0.4.0" }
-criterion = { version="^0.3.4", features = ["async_tokio", "html_reports"] }
-
-[target.'cfg(loom)'.dependencies]
-loom = { version = "^0.4.0", features = ["futures", "checkpoint"] }
+loom = { version = "0.5", features = ["futures", "checkpoint"] }
+criterion = { version = "0.3", features = ["async_tokio", "html_reports"] }
 
 [[test]]
 name = "tests"
@@ -44,7 +41,6 @@ name = "tests"
 [[bench]]
 name = "bench_channel_async"
 harness = false
-
 
 [[bench]]
 name = "bench_channel_sync"
