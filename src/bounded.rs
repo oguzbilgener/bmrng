@@ -7,13 +7,17 @@ use futures_core::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+pub trait Request {
+    type Response;
+}
+
 /// The internal data sent in the MPSC request channel, a tuple that contains the request and the oneshot response channel responder
-pub type Payload<Req, Res> = (Req, Responder<Res>);
+pub type Payload<R: Request> = (R, Responder<R::Response>);
 
 /// Send values to the associated [`RequestReceiver`].
 #[derive(Debug)]
-pub struct RequestSender<Req, Res> {
-    request_sender: mpsc::Sender<Payload<Req, Res>>,
+pub struct RequestSender<R: Request> {
+    request_sender: mpsc::Sender<Payload<R>>,
     timeout_duration: Option<Duration>,
 }
 
@@ -21,30 +25,30 @@ pub struct RequestSender<Req, Res> {
 ///
 /// Instances are created by the [`channel`] function.
 #[derive(Debug)]
-pub struct RequestReceiver<Req, Res> {
-    request_receiver: mpsc::Receiver<Payload<Req, Res>>,
+pub struct RequestReceiver<R: Request> {
+    request_receiver: mpsc::Receiver<Payload<R>>,
 }
 
 /// Send values back to the [`RequestSender`] or [`RequestReceiver`]
 ///
 /// Instances are created by calling [`RequestSender::send_receive()`] or [`RequestSender::send()`]
 #[derive(Debug)]
-pub struct Responder<Res> {
-    response_sender: oneshot::Sender<Res>,
+pub struct Responder<R: Request> {
+    response_sender: oneshot::Sender<R::Response>,
 }
 
 /// Receive responses from a [`Responder`]
 ///
 /// Instances are created by calling [`RequestSender::send_receive()`] or [`RequestSender::send()`]
 #[derive(Debug)]
-pub struct ResponseReceiver<Res> {
-    pub(crate) response_receiver: Option<oneshot::Receiver<Res>>,
+pub struct ResponseReceiver<R: Request> {
+    pub(crate) response_receiver: Option<oneshot::Receiver<R::Response>>,
     pub(crate) timeout_duration: Option<Duration>,
 }
 
-impl<Req, Res> RequestSender<Req, Res> {
+impl<R: Request> RequestSender<R> {
     fn new(
-        request_sender: mpsc::Sender<Payload<Req, Res>>,
+        request_sender: mpsc::Sender<Payload<R>>,
         timeout_duration: Option<Duration>,
     ) -> Self {
         RequestSender {
@@ -58,8 +62,8 @@ impl<Req, Res> RequestSender<Req, Res> {
     /// Return the [`ResponseReceiver`] which can be used to wait for a response
     ///
     /// This call waits if the request channel is full. It does not wait for a response
-    pub async fn send(&self, request: Req) -> Result<ResponseReceiver<Res>, SendError<Req>> {
-        let (response_sender, response_receiver) = oneshot::channel::<Res>();
+    pub async fn send(&self, request: R) -> Result<ResponseReceiver<R::Response>, SendError<R>> {
+        let (response_sender, response_receiver) = oneshot::channel::<R::Response>();
         let responder = Responder::new(response_sender);
         let payload = (request, responder);
         self.request_sender
@@ -73,7 +77,7 @@ impl<Req, Res> RequestSender<Req, Res> {
     /// Send a request over the MPSC channel, wait for the response and return it
     ///
     /// This call waits if the request channel is full, and while waiting for the response
-    pub async fn send_receive(&self, request: Req) -> Result<Res, RequestError<Req>> {
+    pub async fn send_receive(&self, request: R) -> Result<R::Response, RequestError<R>> {
         let mut receiver = self.send(request).await?;
         receiver.recv().await.map_err(|err| err.into())
     }
@@ -84,7 +88,7 @@ impl<Req, Res> RequestSender<Req, Res> {
     }
 }
 
-impl<Req, Res> Clone for RequestSender<Req, Res> {
+impl<R: Request> Clone for RequestSender<R> {
     fn clone(&self) -> Self {
         RequestSender {
             request_sender: self.request_sender.clone(),
@@ -93,15 +97,15 @@ impl<Req, Res> Clone for RequestSender<Req, Res> {
     }
 }
 
-impl<Req, Res> RequestReceiver<Req, Res> {
-    fn new(receiver: mpsc::Receiver<Payload<Req, Res>>) -> Self {
+impl<R: Request> RequestReceiver<R> {
+    fn new(receiver: mpsc::Receiver<Payload<R>>) -> Self {
         RequestReceiver {
             request_receiver: receiver,
         }
     }
 
     /// Receives the next value for this receiver.
-    pub async fn recv(&mut self) -> Result<Payload<Req, Res>, RequestError<Req>> {
+    pub async fn recv(&mut self) -> Result<Payload<R>, RequestError<R>> {
         match self.request_receiver.recv().await {
             Some(payload) => Ok(payload),
             None => Err(RequestError::RecvError),
@@ -114,15 +118,15 @@ impl<Req, Res> RequestReceiver<Req, Res> {
     }
 
     /// Converts this receiver into a stream
-    pub fn into_stream(self) -> impl Stream<Item = Payload<Req, Res>> {
-        let stream: RequestReceiverStream<Req, Res> = self.into();
+    pub fn into_stream(self) -> impl Stream<Item = Payload<R>> {
+        let stream: RequestReceiverStream<R> = self.into();
         stream
     }
 }
 
-impl<Res> ResponseReceiver<Res> {
+impl<R: Request> ResponseReceiver<R::Response> {
     pub(crate) fn new(
-        response_receiver: oneshot::Receiver<Res>,
+        response_receiver: oneshot::Receiver<R::Response>,
         timeout_duration: Option<Duration>,
     ) -> Self {
         Self {
@@ -136,7 +140,7 @@ impl<Res> ResponseReceiver<Res> {
     /// If there is a `timeout_duration` set, and the sender takes longer than
     /// the timeout_duration to send the response, it aborts waiting and returns
     /// [`ReceiveError::TimeoutError`].
-    pub async fn recv(&mut self) -> Result<Res, ReceiveError> {
+    pub async fn recv(&mut self) -> Result<R::Response, ReceiveError> {
         match self.response_receiver.take() {
             Some(response_receiver) => match self.timeout_duration {
                 Some(duration) => match timeout(duration, response_receiver).await {
@@ -150,13 +154,13 @@ impl<Res> ResponseReceiver<Res> {
     }
 }
 
-impl<Res> Responder<Res> {
-    pub(crate) fn new(response_sender: oneshot::Sender<Res>) -> Self {
+impl<R: Request> Responder<R::Response> {
+    pub(crate) fn new(response_sender: oneshot::Sender<R::Response>) -> Self {
         Self { response_sender }
     }
 
     /// Responds a request from the [`RequestSender`] which finishes the request
-    pub fn respond(self, response: Res) -> Result<(), RespondError<Res>> {
+    pub fn respond(self, response: R::Response) -> Result<(), RespondError<R::Response>> {
         self.response_sender.send(response).map_err(RespondError)
     }
 
@@ -195,8 +199,8 @@ impl<Res> Responder<Res> {
 ///     }
 /// }
 /// ```
-pub fn channel<Req, Res>(buffer: usize) -> (RequestSender<Req, Res>, RequestReceiver<Req, Res>) {
-    let (sender, receiver) = mpsc::channel::<Payload<Req, Res>>(buffer);
+pub fn channel<R: Request>(buffer: usize) -> (RequestSender<R>, RequestReceiver<R>) {
+    let (sender, receiver) = mpsc::channel::<Payload<R>>(buffer);
     let request_sender = RequestSender::new(sender, None);
     let request_receiver = RequestReceiver::new(receiver);
     (request_sender, request_receiver)
@@ -232,11 +236,11 @@ pub fn channel<Req, Res>(buffer: usize) -> (RequestSender<Req, Res>, RequestRece
 ///     assert_eq!(response, Err(bmrng::error::RequestError::<i32>::RecvTimeoutError));
 /// }
 /// ```
-pub fn channel_with_timeout<Req, Res>(
+pub fn channel_with_timeout<R: Request>(
     buffer: usize,
     timeout_duration: Duration,
-) -> (RequestSender<Req, Res>, RequestReceiver<Req, Res>) {
-    let (sender, receiver) = mpsc::channel::<Payload<Req, Res>>(buffer);
+) -> (RequestSender<R>, RequestReceiver<R>) {
+    let (sender, receiver) = mpsc::channel::<Payload<R>>(buffer);
     let request_sender = RequestSender::new(sender, Some(timeout_duration));
     let request_receiver = RequestReceiver::new(receiver);
     (request_sender, request_receiver)
@@ -244,19 +248,19 @@ pub fn channel_with_timeout<Req, Res>(
 
 /// A wrapper around [`RequestReceiver`] that implements [`Stream`].
 #[derive(Debug)]
-pub struct RequestReceiverStream<Req, Res> {
-    inner: RequestReceiver<Req, Res>,
+pub struct RequestReceiverStream<R: Request> {
+    inner: RequestReceiver<R>,
 }
 
-impl<Req, Res> RequestReceiverStream<Req, Res> {
+impl<R: Request> RequestReceiverStream<R> {
     /// Create a new `RequestReceiverStream`.
-    pub fn new(recv: RequestReceiver<Req, Res>) -> Self {
+    pub fn new(recv: RequestReceiver<R>) -> Self {
         Self { inner: recv }
     }
 
     /// Get back the inner `Receiver`.
     #[cfg(not(tarpaulin_include))]
-    pub fn into_inner(self) -> RequestReceiver<Req, Res> {
+    pub fn into_inner(self) -> RequestReceiver<R> {
         self.inner
     }
 
@@ -267,30 +271,30 @@ impl<Req, Res> RequestReceiverStream<Req, Res> {
     }
 }
 
-impl<Req, Res> Stream for RequestReceiverStream<Req, Res> {
-    type Item = Payload<Req, Res>;
+impl<R: Request> Stream for RequestReceiverStream<R> {
+    type Item = Payload<R>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.inner.request_receiver.poll_recv(cx)
     }
 }
 
-impl<Req, Res> AsRef<RequestReceiver<Req, Res>> for RequestReceiverStream<Req, Res> {
+impl<R: Request> AsRef<RequestReceiver<R>> for RequestReceiverStream<R> {
     #[cfg(not(tarpaulin_include))]
-    fn as_ref(&self) -> &RequestReceiver<Req, Res> {
+    fn as_ref(&self) -> &RequestReceiver<R> {
         &self.inner
     }
 }
 
-impl<Req, Res> AsMut<RequestReceiver<Req, Res>> for RequestReceiverStream<Req, Res> {
+impl<R: Request> AsMut<RequestReceiver<R>> for RequestReceiverStream<R> {
     #[cfg(not(tarpaulin_include))]
-    fn as_mut(&mut self) -> &mut RequestReceiver<Req, Res> {
+    fn as_mut(&mut self) -> &mut RequestReceiver<R> {
         &mut self.inner
     }
 }
 
-impl<Req, Res> From<RequestReceiver<Req, Res>> for RequestReceiverStream<Req, Res> {
-    fn from(receiver: RequestReceiver<Req, Res>) -> Self {
+impl<R: Request> From<RequestReceiver<R>> for RequestReceiverStream<R> {
+    fn from(receiver: RequestReceiver<R>) -> Self {
         RequestReceiverStream::new(receiver)
     }
 }
