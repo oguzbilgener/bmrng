@@ -24,6 +24,12 @@
 //! See [`bmrng::channel()`](crate::channel()) for a channel with backpressure and
 //! [`bmrng::unbounded::channel()`](crate::unbounded::channel()) for a channel without backpressure.
 
+/// request
+pub trait Request {
+    /// response
+    type Response;
+}
+
 mod bounded;
 pub use self::bounded::{
     channel, channel_with_timeout, Payload, RequestReceiver, RequestReceiverStream, RequestSender,
