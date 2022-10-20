@@ -1,6 +1,6 @@
-use crate::error::{RequestError, RespondError, SendError};
+use crate::{Request, error::{RequestError, RespondError, SendError}};
 
-use crate::bounded::{ResponseReceiver, Request};
+use crate::bounded::ResponseReceiver;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
 
@@ -9,12 +9,18 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 /// The internal data sent in the MPSC request channel, a tuple that contains the request and the oneshot response channel responder
-pub type Payload<R: Request> = (R, UnboundedResponder<R::Response>);
+#[derive(Debug)]
+pub struct UnboundedPayload<R: Request> {
+    /// the request
+    pub request: R,
+    /// the responder
+    pub responder: UnboundedResponder<R::Response>,
+}
 
 /// Send values to the associated [`UnboundedRequestReceiver`].
 #[derive(Debug)]
 pub struct UnboundedRequestSender<R: Request> {
-    request_sender: mpsc::UnboundedSender<Payload<R>>,
+    request_sender: mpsc::UnboundedSender<UnboundedPayload<R>>,
     timeout_duration: Option<Duration>,
 }
 
@@ -23,20 +29,20 @@ pub struct UnboundedRequestSender<R: Request> {
 /// Instances are created by the [`channel`] function.
 #[derive(Debug)]
 pub struct UnboundedRequestReceiver<R: Request> {
-    request_receiver: mpsc::UnboundedReceiver<Payload<R>>,
+    request_receiver: mpsc::UnboundedReceiver<UnboundedPayload<R>>,
 }
 
 /// Send values back to the [`UnboundedRequestSender`] or [`UnboundedRequestReceiver`]
 ///
 /// Instances are created by calling [`UnboundedRequestSender::send_receive()`] or [`UnboundedRequestSender::send()`]
 #[derive(Debug)]
-pub struct UnboundedResponder<R: Request> {
-    response_sender: oneshot::Sender<R::Response>,
+pub struct UnboundedResponder<R> {
+    response_sender: oneshot::Sender<R>,
 }
 
 impl<R: Request> UnboundedRequestSender<R> {
     fn new(
-        request_sender: mpsc::UnboundedSender<Payload<R>>,
+        request_sender: mpsc::UnboundedSender<UnboundedPayload<R>>,
         timeout_duration: Option<Duration>,
     ) -> Self {
         UnboundedRequestSender {
@@ -50,10 +56,10 @@ impl<R: Request> UnboundedRequestSender<R> {
     pub fn send(&self, request: R) -> Result<ResponseReceiver<R::Response>, SendError<R>> {
         let (response_sender, response_receiver) = oneshot::channel::<R::Response>();
         let responder = UnboundedResponder::new(response_sender);
-        let payload = (request, responder);
+        let payload = UnboundedPayload { request, responder };
         self.request_sender
             .send(payload)
-            .map_err(|payload| SendError(payload.0 .0))?;
+            .map_err(|payload| SendError(payload.0.request))?;
         let receiver = ResponseReceiver::new(response_receiver, self.timeout_duration);
         Ok(receiver)
     }
@@ -80,14 +86,14 @@ impl<R: Request> Clone for UnboundedRequestSender<R> {
 }
 
 impl<R: Request> UnboundedRequestReceiver<R> {
-    fn new(receiver: mpsc::UnboundedReceiver<Payload<R>>) -> Self {
+    fn new(receiver: mpsc::UnboundedReceiver<UnboundedPayload<R>>) -> Self {
         UnboundedRequestReceiver {
             request_receiver: receiver,
         }
     }
 
     /// Receives the next value for this receiver.
-    pub async fn recv(&mut self) -> Result<Payload<R>, RequestError<R>> {
+    pub async fn recv(&mut self) -> Result<UnboundedPayload<R>, RequestError<R>> {
         match self.request_receiver.recv().await {
             Some(payload) => Ok(payload),
             None => Err(RequestError::RecvError),
@@ -100,19 +106,19 @@ impl<R: Request> UnboundedRequestReceiver<R> {
     }
 
     /// Converts this receiver into a stream
-    pub fn into_stream(self) -> impl Stream<Item = Payload<R>> {
+    pub fn into_stream(self) -> impl Stream<Item = UnboundedPayload<R>> {
         let stream: UnboundedRequestReceiverStream<R> = self.into();
         stream
     }
 }
 
-impl<R: Request> UnboundedResponder<R::Response> {
-    fn new(response_sender: oneshot::Sender<R::Response>) -> Self {
+impl<R> UnboundedResponder<R> {
+    fn new(response_sender: oneshot::Sender<R>) -> Self {
         Self { response_sender }
     }
 
     /// Responds a request from the [`UnboundedRequestSender`] which finishes the request
-    pub fn respond(self, response: R::Response) -> Result<(), RespondError<R::Response>> {
+    pub fn respond(self, response: R) -> Result<(), RespondError<R>> {
         self.response_sender.send(response).map_err(RespondError)
     }
 
@@ -130,7 +136,7 @@ pub fn channel<R: Request>() -> (
     UnboundedRequestSender<R>,
     UnboundedRequestReceiver<R>,
 ) {
-    let (sender, receiver) = mpsc::unbounded_channel::<Payload<R>>();
+    let (sender, receiver) = mpsc::unbounded_channel::<UnboundedPayload<R>>();
     let request_sender = UnboundedRequestSender::new(sender, None);
     let request_receiver = UnboundedRequestReceiver::new(receiver);
     (request_sender, request_receiver)
@@ -146,7 +152,7 @@ pub fn channel_with_timeout<R: Request>(
     UnboundedRequestSender<R>,
     UnboundedRequestReceiver<R>,
 ) {
-    let (sender, receiver) = mpsc::unbounded_channel::<Payload<R>>();
+    let (sender, receiver) = mpsc::unbounded_channel::<UnboundedPayload<R>>();
     let request_sender = UnboundedRequestSender::new(sender, Some(timeout_duration));
     let request_receiver = UnboundedRequestReceiver::new(receiver);
     (request_sender, request_receiver)
@@ -178,7 +184,7 @@ impl<R: Request> UnboundedRequestReceiverStream<R> {
 }
 
 impl<R: Request> Stream for UnboundedRequestReceiverStream<R> {
-    type Item = Payload<R>;
+    type Item = UnboundedPayload<R>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.inner.request_receiver.poll_recv(cx)

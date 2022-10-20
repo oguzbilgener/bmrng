@@ -1,4 +1,4 @@
-use crate::error::{ReceiveError, RequestError, RespondError, SendError};
+use crate::{Request, error::{ReceiveError, RequestError, RespondError, SendError}};
 
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{timeout, Duration};
@@ -7,12 +7,14 @@ use futures_core::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-pub trait Request {
-    type Response;
-}
-
 /// The internal data sent in the MPSC request channel, a tuple that contains the request and the oneshot response channel responder
-pub type Payload<R: Request> = (R, Responder<R::Response>);
+#[derive(Debug)]
+pub struct Payload<R: Request> {
+    /// the request
+    pub request: R,
+    /// the responder
+    pub responder: Responder<R::Response>,
+}
 
 /// Send values to the associated [`RequestReceiver`].
 #[derive(Debug)]
@@ -33,16 +35,16 @@ pub struct RequestReceiver<R: Request> {
 ///
 /// Instances are created by calling [`RequestSender::send_receive()`] or [`RequestSender::send()`]
 #[derive(Debug)]
-pub struct Responder<R: Request> {
-    response_sender: oneshot::Sender<R::Response>,
+pub struct Responder<R> {
+    response_sender: oneshot::Sender<R>,
 }
 
 /// Receive responses from a [`Responder`]
 ///
 /// Instances are created by calling [`RequestSender::send_receive()`] or [`RequestSender::send()`]
 #[derive(Debug)]
-pub struct ResponseReceiver<R: Request> {
-    pub(crate) response_receiver: Option<oneshot::Receiver<R::Response>>,
+pub struct ResponseReceiver<R> {
+    pub(crate) response_receiver: Option<oneshot::Receiver<R>>,
     pub(crate) timeout_duration: Option<Duration>,
 }
 
@@ -65,11 +67,11 @@ impl<R: Request> RequestSender<R> {
     pub async fn send(&self, request: R) -> Result<ResponseReceiver<R::Response>, SendError<R>> {
         let (response_sender, response_receiver) = oneshot::channel::<R::Response>();
         let responder = Responder::new(response_sender);
-        let payload = (request, responder);
+        let payload = Payload { request, responder };
         self.request_sender
             .send(payload)
             .await
-            .map_err(|payload| SendError(payload.0 .0))?;
+            .map_err(|payload| SendError(payload.0.request))?;
         let receiver = ResponseReceiver::new(response_receiver, self.timeout_duration);
         Ok(receiver)
     }
@@ -124,9 +126,9 @@ impl<R: Request> RequestReceiver<R> {
     }
 }
 
-impl<R: Request> ResponseReceiver<R::Response> {
+impl<R> ResponseReceiver<R> {
     pub(crate) fn new(
-        response_receiver: oneshot::Receiver<R::Response>,
+        response_receiver: oneshot::Receiver<R>,
         timeout_duration: Option<Duration>,
     ) -> Self {
         Self {
@@ -140,7 +142,7 @@ impl<R: Request> ResponseReceiver<R::Response> {
     /// If there is a `timeout_duration` set, and the sender takes longer than
     /// the timeout_duration to send the response, it aborts waiting and returns
     /// [`ReceiveError::TimeoutError`].
-    pub async fn recv(&mut self) -> Result<R::Response, ReceiveError> {
+    pub async fn recv(&mut self) -> Result<R, ReceiveError> {
         match self.response_receiver.take() {
             Some(response_receiver) => match self.timeout_duration {
                 Some(duration) => match timeout(duration, response_receiver).await {
@@ -154,13 +156,13 @@ impl<R: Request> ResponseReceiver<R::Response> {
     }
 }
 
-impl<R: Request> Responder<R::Response> {
-    pub(crate) fn new(response_sender: oneshot::Sender<R::Response>) -> Self {
+impl<R> Responder<R> {
+    pub(crate) fn new(response_sender: oneshot::Sender<R>) -> Self {
         Self { response_sender }
     }
 
     /// Responds a request from the [`RequestSender`] which finishes the request
-    pub fn respond(self, response: R::Response) -> Result<(), RespondError<R::Response>> {
+    pub fn respond(self, response: R) -> Result<(), RespondError<R>> {
         self.response_sender.send(response).map_err(RespondError)
     }
 
@@ -180,21 +182,29 @@ impl<R: Request> Responder<R::Response> {
 /// # Examples
 ///
 /// ```rust
+/// use bmrng::{Request, Payload};
+/// 
+/// #[derive(Debug)]
+/// struct Req(u32);
+/// impl Request for Req {
+///     type Response = u32;
+/// }
+/// 
 /// #[tokio::main]
 /// async fn main() {
 ///     let buffer_size = 100;
-///     let (tx, mut rx) = bmrng::channel::<i32, i32>(buffer_size);
+///     let (tx, mut rx) = bmrng::channel::<Req>(buffer_size);
 ///     tokio::spawn(async move {
-///         while let Ok((input, mut responder)) = rx.recv().await {
-///             if let Err(err) = responder.respond(input * input) {
+///         while let Ok(Payload { request, mut responder }) = rx.recv().await {
+///             if let Err(err) = responder.respond(request.0 * 2) {
 ///                 println!("sender dropped the response channel");
 ///             }
 ///         }
 ///     });
 ///     for i in 1..=10 {
-///         if let Ok(response) = tx.send_receive(i).await {
+///         if let Ok(response) = tx.send_receive(Req(i)).await {
 ///             println!("Requested {}, got {}", i, response);
-///             assert_eq!(response, i * i);
+///             assert_eq!(response, i * 2);
 ///         }
 ///     }
 /// }
@@ -217,14 +227,22 @@ pub fn channel<R: Request>(buffer: usize) -> (RequestSender<R>, RequestReceiver<
 ///
 /// ```rust
 /// use tokio::time::{Duration, sleep};
+/// use bmrng::{Request, Payload};
+/// 
+/// #[derive(Debug, PartialEq)]
+/// struct Req(u32);
+/// impl Request for Req {
+///     type Response = u32;
+/// }
+/// 
 /// #[tokio::main]
 /// async fn main() {
-///     let (tx, mut rx) = bmrng::channel_with_timeout::<i32, i32>(100, Duration::from_millis(100));
+///     let (tx, mut rx) = bmrng::channel_with_timeout::<Req>(100, Duration::from_millis(100));
 ///     tokio::spawn(async move {
 ///         match rx.recv().await {
-///             Ok((input, mut responder)) => {
+///             Ok(Payload { request, mut responder }) => {
 ///                 sleep(Duration::from_millis(200)).await;
-///                 let res = responder.respond(input * input);
+///                 let res = responder.respond(request.0 * 2);
 ///                 assert_eq!(res.is_ok(), true);
 ///             }
 ///             Err(err) => {
@@ -232,8 +250,8 @@ pub fn channel<R: Request>(buffer: usize) -> (RequestSender<R>, RequestReceiver<
 ///             }
 ///         }
 ///     });
-///     let response = tx.send_receive(8).await;
-///     assert_eq!(response, Err(bmrng::error::RequestError::<i32>::RecvTimeoutError));
+///     let response = tx.send_receive(Req(8)).await;
+///     assert_eq!(response, Err(bmrng::error::RequestError::<Req>::RecvTimeoutError));
 /// }
 /// ```
 pub fn channel_with_timeout<R: Request>(
